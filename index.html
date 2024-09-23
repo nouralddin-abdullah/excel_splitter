@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Excel File Splitter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+</head>
+<body>
+  <h1>Excel File Splitter</h1>
+  
+  <input type="file" id="fileInput" accept=".xlsx" />
+  <br><br>
+  <label for="divideBy">Divide by:</label>
+  <input type="number" id="divideBy" min="1" value="5">
+  <br><br>
+  <button onclick="splitExcel()">Split and Download</button>
+  
+  <div id="downloadLinks"></div>
+  
+  <script>
+    function splitExcel() {
+      const fileInput = document.getElementById('fileInput');
+      const divideBy = parseInt(document.getElementById('divideBy').value);
+      const downloadLinks = document.getElementById('downloadLinks');
+      downloadLinks.innerHTML = ''; // Clear previous links
+
+      if (!fileInput.files.length) {
+        alert('Please upload a file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+
+        // Split the rows by the given number
+        const totalRows = sheet.length;
+        const chunks = Math.ceil(totalRows / divideBy);
+
+        for (let i = 0; i < chunks; i++) {
+          const start = i * divideBy;
+          const end = start + divideBy;
+          const chunkData = sheet.slice(start, end);
+
+          const newWorkbook = XLSX.utils.book_new();
+          const newSheet = XLSX.utils.aoa_to_sheet(chunkData);
+          XLSX.utils.book_append_sheet(newWorkbook, newSheet, `Part ${i + 1}`);
+
+          const wbout = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'binary' });
+
+          // Create a download link
+          const blob = new Blob([s2ab(wbout)], { type: 'application/octet-stream' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `part_${i + 1}.xlsx`;
+          link.textContent = `Download Part ${i + 1}`;
+          downloadLinks.appendChild(link);
+          downloadLinks.appendChild(document.createElement('br'));
+        }
+      };
+
+      reader.readAsArrayBuffer(fileInput.files[0]);
+    }
+
+    // Helper function to convert string to ArrayBuffer
+    function s2ab(s) {
+      const buf = new ArrayBuffer(s.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < s.length; i++) {
+        view[i] = s.charCodeAt(i) & 0xFF;
+      }
+      return buf;
+    }
+  </script>
+</body>
+</html>
